@@ -180,7 +180,7 @@ These resources are used to compute:
 
 ---
 
-### 7. Minimal set to reproduce the main paper results
+### 5. Minimal set to reproduce the main paper results
 
 To reproduce the main results reported in the manuscript, the minimum required inputs are:
 
@@ -199,3 +199,204 @@ The following files are strongly recommended for the full feature set and bias d
 - `rmsk.txt.gz`
 - `hg38_genomicSuperDups.bed`
 - `k100.Umap.MultiTrackMappability.bw`
+
+
+## Running the main regression models
+
+The main modelling results in the manuscript are obtained from the processed genome-wide dataset built in the earlier sections of the notebook.  
+Once bin construction, target construction, and feature annotation have been completed, the notebook trains regression models directly on the final merged table.
+
+### Main input dataset
+
+The main input used for model training is the processed file:
+
+- `out_bins_experiment/dataset_global_hg38_25000_seqfeat.csv.gz`
+
+This table contains one row per genomic bin and includes:
+- bin coordinates
+- validity flags
+- observed support and null-based target columns
+- sequence-derived features
+- gene and transcription start site features
+- positional features
+- optional technical or genome-complexity covariates
+
+The primary target used for modelling is:
+
+- `y_log2`
+
+which corresponds to the continuous enrichment signal derived from observed replicate support relative to the shuffle-based null expectation.
+
+---
+
+### Which models are trained
+
+The notebook trains and evaluates the following regression models:
+
+- `HGB_reg` (Histogram Gradient Boosting Regressor)
+- `MLP_reg` (Multilayer Perceptron regressor)
+- `Ridge`
+
+These models are used for:
+- the main random split benchmark
+- the primary versus full feature comparison
+- the positional ablation experiment
+- permutation feature importance analysis
+
+---
+
+### Main modelling settings
+
+The standard regression evaluation uses:
+
+- `VAL_FRAC = 0.20`
+- `TEST_FRAC = 0.20`
+- `N_REPEATS = 10`
+- `Y_COL = "y_log2"`
+
+The benchmark is stratified by deciles of the target and repeated across multiple random seeds.
+
+---
+
+### Feature configurations
+
+The notebook evaluates two feature configurations:
+
+#### Primary features
+These correspond to the interpretable locus covariates used in the main paper results:
+- sequence composition and CpG context
+- gene and transcription start site summaries
+- telomere and centromere distances
+- sequence complexity descriptors
+
+#### Full features
+These extend the primary set with technical / genome-complexity covariates, including:
+- repeat fractions
+- mappability summaries
+- segmental duplication coverage
+
+The **Primary** configuration is the main analysis setting.  
+The **Full** configuration is used as a diagnostic comparison.
+
+---
+
+
+## DeepCircle matched comparison
+
+The notebook also includes a protocol-matched comparison against DeepCircle-like datasets.  
+This benchmark is meant to complement the main genome-wide regression setting by evaluating lightweight models on fixed 1 kb windows under a balanced classification protocol.
+
+### What this section does
+
+The DeepCircle comparison reproduces a classification setting in which:
+
+- positive examples are genomic windows associated with reported eccDNA events
+- negative examples are matched genomic windows not overlapping eccDNA regions
+- all windows are represented with engineered features rather than raw sequence
+- models are trained and evaluated under a DeepCircle-like protocol
+
+This analysis is implemented in the notebook section:
+
+- **`# DeepCircle confronto`**
+
+and is organized into the following steps:
+
+1. **Dataset discovery and setup**  
+   Load DeepCircle BED files and define paths, genome resources, and split logic.
+
+2. **Window construction**  
+   Convert positive events into fixed 1 kb windows and generate matched negative windows.
+
+3. **Feature extraction**  
+   Compute sequence-derived and genomic-context features for each 1 kb window.
+
+4. **Train/test split export**  
+   Save processed datasets and split indices.
+
+5. **Model training and evaluation**  
+   Train lightweight classifiers and compute the classification metrics reported in the manuscript.
+
+---
+
+### Files required for the DeepCircle comparison
+
+The following files are required in addition to the main genome resources already described above.
+
+#### A. DeepCircle BED files
+
+The notebook expects DeepCircle-style BED inputs, typically organized under a directory such as:
+
+- `DeepCircle/DNABERT/eccdna/db/.../*.bed`
+
+These BED files provide the positive eccDNA regions used to construct the benchmark windows.
+
+You should update the corresponding root path in the notebook so that it points to your local DeepCircle dataset directory.
+
+#### B. Genome reference and masking files
+
+These are required to construct valid windows and sequence-based features:
+
+- `hg38.fa`
+- `hg38.chrom.sizes`
+- `hg38_gaps.bed`
+- `encBlacklist.bed`
+
+These files are used to:
+- build and validate 1 kb windows
+- remove invalid regions
+- extract sequence-derived features
+
+#### C. Optional annotation tracks for engineered features
+
+If you want the full engineered feature set for the DeepCircle benchmark, the same annotation resources used in the main analysis should also be available:
+
+- `gencode.v49.annotation.gtf.gz`
+- `centromeres_hg38.txt.gz`
+- `rmsk.txt.gz`
+- `hg38_genomicSuperDups.bed`
+- `k100.Umap.MultiTrackMappability.bw`
+
+These are used only if the selected benchmark feature set includes genomic context and diagnostic covariates.
+
+---
+
+### Minimum data needed to run this benchmark
+
+At minimum, you need:
+
+- DeepCircle BED files
+- `hg38.fa`
+- `hg38.chrom.sizes`
+- `hg38_gaps.bed`
+- `encBlacklist.bed`
+
+If you want to reproduce the same engineered-feature benchmark reported in the manuscript, you should also provide:
+
+- `gencode.v49.annotation.gtf.gz`
+- `centromeres_hg38.txt.gz`
+- optional repeat, mappability, and segmental duplication tracks
+
+---
+
+### How to run it
+
+After completing the main configuration and ensuring all paths are correct:
+
+1. Open the notebook section:
+   - **`# DeepCircle confronto`**
+
+2. Update the input paths for:
+   - DeepCircle BED files
+   - genome FASTA
+   - chromosome sizes
+   - masking files
+   - optional annotation tracks
+
+3. Run the DeepCircle cells in order:
+   - dataset setup
+   - window construction
+   - feature extraction
+   - split export
+   - model training and evaluation
+
+No manual reordering is required if the cells are run sequentially.
